@@ -1,76 +1,64 @@
 import { openai } from '@ai-sdk/openai';
-import { streamText, UIMessage, convertToModelMessages, ToolSet } from 'ai';
+import { streamText, UIMessage, convertToCoreMessages, experimental_createMCPClient as createMCPClient } from 'ai';
 import { StreamableHTTPClientTransport } from '@modelcontextprotocol/sdk/client/streamableHttp.js';
-import { Client } from '@modelcontextprotocol/sdk/client/index.js';
 import { getTokens } from "@civic/auth/nextjs";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
 
 // CIVIC NEXUS MPC SETUP
-async function createMCPClient() {
-  // Get Civic Auth token for Nexus authentication
-  const tokens = await getTokens();
-  const accessToken = tokens?.accessToken;
+export const getNexusTools = async () => {
+  const { accessToken } = (await getTokens()) ?? {};
   if (!accessToken) {
-    throw new Error('Missing access token from Civic getTokens()');
+    // Return empty tools if no access token (Nexus is optional)
+    return {};
   }
-  
-  // Create MCP transport with Nexus authentication headers
-const transport = new StreamableHTTPClientTransport(
-    new URL('https://nexus.civic.com/hub/mcp'),
-    {
+
+  try {
+    const transport = new StreamableHTTPClientTransport(
+      new URL('https://nexus.civic.com/hub/mcp'), {
         requestInit: {
-            headers: {
-                // Required: Bearer token for Nexus authentication
-                Authorization: `Bearer ${accessToken}`,
-                'Content-Type': 'application/json'
-            }
+          headers: {
+            Authorization: `Bearer ${accessToken}`
+          }
         }
-    }
-);
+      }
+    );
 
-  const client = new Client({
-    name: 'my-ai-app',
-    version: '1.0.0'
-  }, {
-    capabilities: {}
-  });
-
-  await client.connect(transport);
-  return client;
+    const mcpClient = await createMCPClient({ transport });
+    return mcpClient.tools();
+  } catch (error) {
+    console.warn('Failed to load Nexus tools, continuing without them:', error);
+    return {};
+  }
 }
 
-
 export async function POST(req: Request) {
-  const { messages }: { messages: UIMessage[] } = await req.json();
+  try {
+    const { messages }: { messages: UIMessage[] } = await req.json();
+    if (!messages || !Array.isArray(messages)) {
+      return new Response(
+        JSON.stringify({ error: 'Invalid request: messages array required' }),
+        { status: 400, headers: { 'Content-Type': 'application/json' } }
+      );
+    }
+  
+    // Get Nexus tools
+    const nexusTools = await getNexusTools();
+  
+    const result = streamText({
+      model: openai('gpt-4o-mini'),
+      messages: convertToCoreMessages(messages),
+      tools: nexusTools,
+    });
+  
+    return result.toUIMessageStreamResponse();
+  } catch (error) {
+    console.error('Error in /api/chat route:', error);
+    const errorMessage = error instanceof Error ? error.message : 'Failed to process request';
 
-  // Connect to Nexus MCP Hub
-  const client = await createMCPClient();
-  const { tools } = await client.listTools();
-
-  // Convert MCP tools to AI SDK v5 format
-  const aiTools = tools.reduce((acc, tool) => {
-    acc[tool.name] = {
-      description: tool.description,
-      parameters: tool.inputSchema,
-      execute: async (args: any) => { // eslint-disable-line
-        const result = await client.callTool({
-          name: tool.name,
-          arguments: args
-        });
-        return result.content;
-      }
-    };
-    return acc;
-  }, {} as Record<string, any>); // eslint-disable-line
-
-  const result = streamText({
-    model: openai('gpt-4o-mini'),
-    messages: convertToModelMessages(messages),
-    tools: aiTools,
-  });
-
-  await client.close()
-  return result.toUIMessageStreamResponse();
+    return new Response(
+      JSON.stringify({ error: errorMessage }),
+      { status: 500, headers: { 'Content-Type': 'application/json' } }
+    );  }
 }
