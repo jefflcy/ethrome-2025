@@ -19,7 +19,7 @@ export async function getNansenTools() {
     nansenClient = await experimental_createMCPClient({ transport });
   }
   
-  return await nansenClient.tools();
+  return await nansenClient.tools()
 }
 
 export async function closeNansenClient() {

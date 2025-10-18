@@ -7,7 +7,7 @@ import {
 } from "ai";
 // import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 // import { getTokens } from "@civic/auth-web3/nextjs";
-import { getNansenTools } from '../../lib/tools/nansen-tool';
+import { getNansenTools, closeNansenClient } from '../../lib/tools/nansen-tool';
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -66,11 +66,15 @@ export async function POST(req: Request) {
       onStepFinish: async ({ toolCalls, toolResults }) => {
         console.log("Tool calls:", toolCalls);
         console.log("Tool results:", toolResults);
-      }
+      },
+      onFinish: async () => await closeNansenClient()
     });
 
     
-    return result.toUIMessageStreamResponse();
+    return result.toUIMessageStreamResponse({
+      sendSources: true,
+      sendReasoning: true,
+    });
   } catch (error) {
     console.error("Error in /api/chat route:", error);
     const errorMessage =
