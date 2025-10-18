@@ -3,6 +3,8 @@
 import { Fragment, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { UserButton } from '@civic/auth-web3/react';
+import { useAutoConnect } from '@civic/auth-web3/wagmi';
+import { useAccount } from 'wagmi';
 
 import {
   Conversation,
@@ -53,6 +55,13 @@ export default function Chat() {
   const [input, setInput] = useState('');
   const [model, setModel] = useState<string>(models[0].value);
   const { messages, sendMessage, status, regenerate } = useChat();
+  // Initialize Civic embedded wallet auto-connect (will attempt to auto-create/connect)
+  useAutoConnect();
+
+  // Read wallet connection state from wagmi
+  const { address, isConnected } = useAccount();
+
+  const truncate = (addr?: string) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
 
   const handleSubmit = (message: PromptInputMessage) => {
     const hasText = Boolean(message.text && message.text.trim().length > 0);
@@ -78,6 +87,13 @@ export default function Chat() {
       {/* User button in the corner */}
       <div className="absolute top-4 right-4 z-10">
         <UserButton theme="dark" onSignOut={() => window.location.reload()} />
+      </div>
+
+      {/* Wallet status above the chat card */}
+      <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
+        <div className="text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-full bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
+          {isConnected ? `Connected: ${truncate(address)}` : 'Wallet: disconnected'}
+        </div>
       </div>
 
       {/* Centered chat card */}
