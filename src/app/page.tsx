@@ -2,7 +2,7 @@
 
 import { useChat } from '@ai-sdk/react';
 import { useState } from 'react';
-import { UserButton } from "@civic/auth/react";
+import { UserButton } from "@civic/auth-web3/react";
 
 export default function Chat() {
   const [input, setInput] = useState('');
@@ -12,7 +12,7 @@ export default function Chat() {
     <div className="relative min-h-screen flex items-center justify-center bg-transparent">
       {/* User button in the corner */}
       <div className="absolute top-4 right-4 z-10">
-        <UserButton theme="dark" />
+        <UserButton theme="dark" onSignOut={() => window.location.reload()} />
       </div>
 
       {/* Chat container with border */}

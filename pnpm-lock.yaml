@@ -17,9 +17,6 @@ importers:
       '@ai-sdk/react':
         specifier: ^2.0.76
         version: 2.0.76(react@19.1.0)(zod@4.1.12)
-      '@civic/auth':
-        specifier: ^0.11.4
-        version: 0.11.4(@types/react@19.2.2)(express@5.1.0)(next@15.5.6(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)
       '@civic/auth-web3':
         specifier: ^0.8.1
         version: 0.8.1(@types/react@19.2.2)(bufferutil@4.0.9)(express@5.1.0)(next@15.5.6(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)(utf-8-validate@5.0.10)(zod@4.1.12)
@@ -186,18 +183,6 @@ packages:
 
   '@civic/auth@0.11.3':
     resolution: {integrity: sha512-DBRIdHLt+BlwX4f8g3O3IKvqhjhn6wMvmxlGHpp388+G+VGYMpb3G3F5PTdnoFzwZFeUAYdMTEMx00I4BXoQAA==}
-    peerDependencies:
-      express: '>=4.0.0'
-      next: ^14.2.25 || >=15.2.3
-      react: '>=18'
-    peerDependenciesMeta:
-      express:
-        optional: true
-      next:
-        optional: true
-
-  '@civic/auth@0.11.4':
-    resolution: {integrity: sha512-5XMDBsnIMlHsfxgbym/g4TpgW2vgLz8UxtMIaxN966oqQeV0BVfvYHNji1unwkde2TvpD4a5S1GylTJsrPY0eg==}
     peerDependencies:
       express: '>=4.0.0'
       next: ^14.2.25 || >=15.2.3
@@ -2964,31 +2949,6 @@ snapshots:
       - zod
 
   '@civic/auth@0.11.3(@types/react@19.2.2)(express@5.1.0)(next@15.5.6(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)':
-    dependencies:
-      '@civic/auth-verify': 0.0.4
-      '@civic/iframe-resizer': 0.1.2(react@19.1.0)
-      '@emotion/react': 11.14.0(@types/react@19.2.2)(react@19.1.0)
-      '@react-router/node': 7.9.4(react-router@7.9.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(typescript@5.9.3)
-      debug: 4.4.3
-      eventemitter3: 5.0.1
-      jose: 5.10.0
-      oslo: 1.2.1
-      picomatch: 4.0.3
-      react: 19.1.0
-      react-router: 7.9.4(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-      ts-deepmerge: 7.0.3
-      usehooks-ts: 3.1.1(react@19.1.0)
-      uuid: 10.0.0
-    optionalDependencies:
-      express: 5.1.0
-      next: 15.5.6(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0)
-    transitivePeerDependencies:
-      - '@types/react'
-      - react-dom
-      - supports-color
-      - typescript
-
-  '@civic/auth@0.11.4(@types/react@19.2.2)(express@5.1.0)(next@15.5.6(@opentelemetry/api@1.9.0)(react-dom@19.1.0(react@19.1.0))(react@19.1.0))(react-dom@19.1.0(react@19.1.0))(react@19.1.0)(typescript@5.9.3)':
     dependencies:
       '@civic/auth-verify': 0.0.4
       '@civic/iframe-resizer': 0.1.2(react@19.1.0)
