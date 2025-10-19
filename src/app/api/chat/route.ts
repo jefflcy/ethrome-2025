@@ -7,7 +7,12 @@ import {
 } from "ai";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
 import { getTokens } from "@civic/auth-web3/nextjs";
-import { getNansenTools, closeNansenClient } from '../../lib/tools/nansen-tool';
+import { getNansenTools } from "../../lib/tools/nansen-tool";
+import {
+  checkAllowanceTool,
+  getApproveTransactionTool,
+  getSwapTransactionTool,
+} from "../../lib/tools/1inch-tool";
 
 // Allow streaming responses up to 30 seconds
 export const maxDuration = 30;
@@ -42,7 +47,13 @@ export const getNexusTools = async () => {
 
 export async function POST(req: Request) {
   try {
-    const { messages }: { messages: UIMessage[] } = await req.json();
+    const {
+      messages,
+      walletAddress,
+    }: {
+      messages: UIMessage[];
+      walletAddress: string;
+    } = await req.json();
     if (!messages || !Array.isArray(messages)) {
       return new Response(
         JSON.stringify({ error: "Invalid request: messages array required" }),
@@ -51,26 +62,32 @@ export async function POST(req: Request) {
     }
 
     // Get Nexus tools
-    const nexusTools = await getNexusTools();
+    // const nexusTools = await getNexusTools();
 
     // Get Nansen tools
     const nansenTools = await getNansenTools();
 
     // Combine tools
-    const tools = { ...nansenTools , ...nexusTools };
+    const tools = {
+      ...nansenTools,
+      // ...nexusTools,
+      // wire in provider-defined 1inch tools
+      checkAllowanceTool,
+      getApproveTransactionTool,
+      getSwapTransactionTool,
+    };
 
     const result = streamText({
       model: openai("gpt-4o-mini"),
       messages: convertToModelMessages(messages),
+      system: `The user's connected wallet is ${walletAddress}. Always respond in English. When you call an external tool, provide a concise summary of the results in your text response. Do not duplicate data - if you present it in a table, don't also show raw JSON.`,
       tools,
       onStepFinish: async ({ toolCalls, toolResults }) => {
         console.log("Tool calls:", toolCalls);
         console.log("Tool results:", toolResults);
       },
-      onFinish: async () => await closeNansenClient()
     });
 
-    
     return result.toUIMessageStreamResponse({
       sendSources: true,
       sendReasoning: true,
