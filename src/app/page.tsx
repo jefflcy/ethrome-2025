@@ -4,7 +4,9 @@ import { Fragment, useState } from 'react';
 import { useChat } from '@ai-sdk/react';
 import { UserButton } from '@civic/auth-web3/react';
 import { useAutoConnect } from '@civic/auth-web3/wagmi';
-import { useAccount } from 'wagmi';
+import { useAccount, useSendTransaction, useBalance } from 'wagmi';
+import { waitForTransactionReceipt } from 'wagmi/actions';
+import { wagmiConfig } from '@/components/client-providers';
 
 import {
   Conversation,
@@ -53,15 +55,58 @@ const models = [
 
 export default function Chat() {
   const [input, setInput] = useState('');
+  const [copied, setCopied] = useState(false);
   const [model, setModel] = useState<string>(models[0].value);
   const { messages, sendMessage, status, regenerate } = useChat();
-  // Initialize Civic embedded wallet auto-connect (will attempt to auto-create/connect)
+  
+  // Initialize Civic embedded wallet auto-connect
   useAutoConnect();
 
   // Read wallet connection state from wagmi
   const { address, isConnected } = useAccount();
 
+  // Fetch ETH balance on Base mainnet (chainId 8453)
+  const { data: balanceData, isLoading: balanceLoading } = useBalance(
+    address
+      ? {
+          address: address as `0x${string}`,
+          chainId: 8453,
+        }
+      : undefined
+  );
+
   const truncate = (addr?: string) => (addr ? `${addr.slice(0, 6)}...${addr.slice(-4)}` : '');
+
+  function ToolTxSender({ tx }: { tx: { to: `0x${string}`; data: `0x${string}`; value: string } }) {
+    const { data: hash, sendTransaction } = useSendTransaction();
+
+    const handleSend = async () => {
+      try {
+        sendTransaction({ to: tx.to, data: tx.data, value: BigInt(tx.value || '0') });
+
+        const receipt = waitForTransactionReceipt(wagmiConfig, {
+          hash: hash!
+        });
+      } catch (e) {
+        console.error('sendTransaction error', e);
+      }
+    };
+
+    return (
+      <div className="mt-2">
+        <div className="text-xs text-zinc-500">Transaction payload from tool:</div>
+        <pre className="p-2 bg-zinc-100 dark:bg-zinc-800 rounded text-xs overflow-x-auto">{JSON.stringify(tx, null, 2)}</pre>
+        <div className="flex gap-2 items-center mt-2">
+          <button
+            className="px-3 py-1 rounded bg-indigo-600 text-white text-sm hover:bg-indigo-700 transition-colors"
+            onClick={handleSend}
+          >
+            Sign & Send
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleSubmit = (message: PromptInputMessage) => {
     const hasText = Boolean(message.text && message.text.trim().length > 0);
@@ -75,7 +120,7 @@ export default function Chat() {
       },
       {
         body: {
-          model, // optional; remove if you don’t need server-side model switching
+          walletAddress: isConnected ? address : ''
         },
       },
     );
@@ -91,8 +136,42 @@ export default function Chat() {
 
       {/* Wallet status above the chat card */}
       <div className="absolute top-4 left-1/2 transform -translate-x-1/2 z-10">
-        <div className="text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-full bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800">
-          {isConnected ? `Connected: ${truncate(address)}` : 'Wallet: disconnected'}
+        <div className="text-sm text-zinc-700 dark:text-zinc-300 px-3 py-1 rounded-full bg-white/80 dark:bg-zinc-900/70 border border-zinc-200 dark:border-zinc-800 flex items-center gap-2">
+          {isConnected ? (
+            <button
+              aria-label="Copy wallet address"
+              className="flex items-center gap-2 focus:outline-none cursor-pointer transition-transform duration-150 ease-in-out hover:scale-105 hover:shadow-md active:scale-100 focus-visible:ring-2 focus-visible:ring-indigo-500 rounded px-2 py-0.5"
+              onClick={async () => {
+                try {
+                  await navigator.clipboard.writeText(address ?? '');
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1400);
+                } catch (e) {
+                  console.error('copy failed', e);
+                }
+              }}
+            >
+              <span className="text-zinc-600 dark:text-zinc-300">Connected:</span>
+              <span className="font-mono text-sm">{truncate(address)}</span>
+              <span className="ml-2 text-xs text-zinc-600 dark:text-zinc-300">
+                {balanceLoading ? '—' : balanceData ? `${balanceData.formatted} ${balanceData.symbol ?? 'ETH'}` : ''}
+              </span>
+              <span className="ml-2 flex items-center">
+                {copied ? (
+                  <svg className="w-4 h-4 text-green-600 transition-opacity duration-200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                    <path d="M20 6L9 17l-5-5" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                ) : (
+                  <svg className="w-4 h-4 text-zinc-500 dark:text-zinc-300 transition-opacity duration-200" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden>
+                    <path d="M16 4h2a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2V6a2 2 0 0 1 2-2h2" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                    <rect x="8" y="2" width="8" height="4" rx="1" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round" />
+                  </svg>
+                )}
+              </span>
+            </button>
+          ) : (
+            'Wallet: disconnected'
+          )}
         </div>
       </div>
 
@@ -161,8 +240,62 @@ export default function Chat() {
                             <ReasoningContent>{part.text}</ReasoningContent>
                           </Reasoning>
                         );
-                      default:
+                      default: {
+                        // Render tool parts (the ai-sdk uses part.type like 'tool-<name>')
+                        if (typeof part.type === 'string' && part.type.startsWith('tool-')) {
+                          const toolPart = part as unknown as Record<string, unknown>;
+                          const state = toolPart.state as string | undefined;
+
+                          if (state === 'input-streaming' || state === 'input-available') {
+                            return (
+                              <div key={`${message.id}-${i}`} className="p-2 text-sm text-zinc-500">
+                                Calling tool {part.type.replace('tool-', '')}...
+                              </div>
+                            );
+                          }
+
+                          if (state === 'output-available') {
+                            const output = toolPart.output as unknown;
+
+                            // If output looks like a transaction payload, render signer UI
+                            if (
+                              output &&
+                              typeof output === 'object' &&
+                              'to' in (output as Record<string, unknown>) &&
+                              'data' in (output as Record<string, unknown>)
+                            ) {
+                              const tx = output as { to: `0x${string}`; data: `0x${string}`; value: string };
+                              return (
+                                <Fragment key={`${message.id}-${i}`}>
+                                  <Message from={message.role}>
+                                    <MessageContent>
+                                      <Response>{`Tool ${part.type.replace('tool-', '')} returned a transaction.`}</Response>
+                                    </MessageContent>
+                                  </Message>
+                                  <ToolTxSender tx={tx} />
+                                </Fragment>
+                              );
+                            }
+
+                            // Don't render tool output - let the AI include it in the text response
+                            return null;
+                          }
+
+                          if (state === 'output-error') {
+                            return (
+                              <Message key={`${message.id}-${i}`} from={message.role}>
+                                <MessageContent>
+                                  <Response className="text-red-600">{String(toolPart.error ?? 'Tool error')}</Response>
+                                </MessageContent>
+                              </Message>
+                            );
+                          }
+
+                          return null;
+                        }
+
                         return null;
+                      }
                     }
                   })}
                 </div>
@@ -195,7 +328,6 @@ export default function Chat() {
                 </PromptInputActionMenuContent>
               </PromptInputActionMenu>
 
-              {/* Optional: remove this block entirely if you don’t need model switching */}
               <PromptInputModelSelect
                 onValueChange={(value) => setModel(value)}
                 value={model}

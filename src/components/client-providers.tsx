@@ -21,12 +21,10 @@ export const supportedChains = [mainnet, sepolia] as [
   ...Chain[],
 ];
 
-const wagmiConfig = createConfig({
-  chains: [ mainnet, sepolia, base ],
+export const wagmiConfig = createConfig({
+  chains: [ base ],
   transports: {
-    [mainnet.id]: http(),
-    [sepolia.id]: http(),
-    [base.id]: http(),
+    [base.id]: http(`https://base-mainnet.g.alchemy.com/v2/${process.env.NEXT_PUBLIC_ALCHEMY_API_KEY}`),
   },
   connectors: [
     embeddedWallet(),
@@ -42,3 +40,5 @@ export const ClientProviders = ({ children }: { children: React.ReactNode }) => 
     </QueryClientProvider>
   );
 };
+
+export { wagmiConfig as config };
